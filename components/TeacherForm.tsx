@@ -65,8 +65,14 @@ const TeacherForm: React.FC<TeacherFormProps> = ({ onSubmit }) => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        const dateString = `${year}${month}${day}`;
+        
         const newRequest: PrintRequest = {
-            id: `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            id: `REQ-${dateString}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
             ...formData,
             noOfPagesOriginal: Number(formData.noOfPagesOriginal),
             noOfCopies: Number(formData.noOfCopies),

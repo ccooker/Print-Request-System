@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { PrintRequest } from '../types';
 import CameraCapture from './CameraCapture';
-import { PrintIcon, CheckCircleIcon, CameraIcon } from './icons';
+import BarcodeScanner from './BarcodeScanner';
+import { PrintIcon, CheckCircleIcon, CameraIcon, BarcodeScanIcon, ExportIcon } from './icons';
 
 interface StaffViewProps {
   requests: PrintRequest[];
@@ -14,6 +14,7 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
   const [selectedRequest, setSelectedRequest] = useState<PrintRequest | null>(null);
   const [message, setMessage] = useState('');
   const [isCapturing, setIsCapturing] = useState<'before' | 'after' | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     if (searchId) {
@@ -59,10 +60,75 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
      }, 2000);
   }
 
+  const handleExport = () => {
+    if (requests.length === 0) {
+      alert("No requests to export.");
+      return;
+    }
+  
+    const headers = [
+      'ID', 'Status', 'SubmissionDate', 'CollectionDate', 'Teacher', 'Subject', 
+      'Class', 'OriginalPages', 'RequestedCopies', 'TotalPrintedPages', 
+      'AdjustedCopies', 'StaffRemarks', 'RicohPages', 'ToshibaPages', 
+      'Stapling', 'PaperType', 'Sided', 'TeacherRemarks'
+    ];
+  
+    const rows = requests.map(req => {
+      const totalCopies = req.classRequests.reduce((sum, r) => sum + r.noOfCopies, 0);
+      const rowData = [
+        req.id,
+        req.status,
+        req.dateOfSubmission,
+        req.dateOfCollection,
+        req.teacherInCharge,
+        req.subject,
+        req.class,
+        req.noOfPagesOriginal,
+        totalCopies,
+        req.totalPrintedPages,
+        req.adjustedCopies ?? '',
+        req.staffRemarks ?? '',
+        req.ricohPages ?? '',
+        req.toshibaPages ?? '',
+        req.stapling ? 'Yes' : 'No',
+        req.whitePaper ? 'White' : 'Newsprint',
+        !req.singleSided ? 'Double' : 'Single',
+        req.remarks ?? ''
+      ];
+      return rowData.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',');
+    });
+  
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      const date = new Date().toISOString().split('T')[0];
+      link.setAttribute("href", url);
+      link.setAttribute("download", `printing_requests_${date}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white p-6 rounded-xl shadow-lg">
-        <h1 className="text-2xl font-bold text-slate-800 mb-4">Printing Staff Dashboard</h1>
+        <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold text-slate-800">Printing Staff Dashboard</h1>
+            <button
+                onClick={handleExport}
+                className="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 flex items-center space-x-2 transition-colors"
+                aria-label="Export all requests to CSV"
+            >
+                <ExportIcon />
+                <span>Export All to CSV</span>
+            </button>
+        </div>
+
         <div className="flex space-x-2">
           <input
             type="text"
@@ -71,6 +137,13 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
             placeholder="Scan or enter barcode ID..."
             className="flex-grow px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button 
+            onClick={() => setIsScanning(true)} 
+            className="bg-blue-500 text-white px-3 rounded-md hover:bg-blue-600 flex items-center space-x-2"
+            aria-label="Scan Barcode"
+          >
+            <BarcodeScanIcon />
+          </button>
           <button onClick={() => setSearchId('')} className="bg-slate-200 px-4 rounded-md hover:bg-slate-300">Clear</button>
         </div>
         {message && <p className="text-center mt-4 text-red-500">{message}</p>}
@@ -88,7 +161,14 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
             <div><span className="font-semibold">Total Copies:</span> {selectedRequest.classRequests.reduce((s,c) => s+c.noOfCopies, 0)}</div>
             <div><span className="font-semibold">Total Printed:</span> {selectedRequest.totalPrintedPages}</div>
             <div><span className="font-semibold">Paper:</span> {selectedRequest.whitePaper ? 'White' : 'Newsprint'}</div>
-            <div><span className="font-semibold">Finishing:</span> {selectedRequest.stapling ? 'Stapled' : 'Not Stapled'}, {selectedRequest.singleSided ? 'Single-Sided' : 'Double-Sided'}</div>
+            <div className="md:col-span-2"><span className="font-semibold">Finishing:</span> {selectedRequest.stapling ? 'Stapled' : 'Not Stapled'}, {selectedRequest.singleSided ? 'Single-Sided' : 'Double-Sided'}</div>
+            {(selectedRequest.ricohPages || selectedRequest.toshibaPages) ? (
+                <div className="md:col-span-2"><span className="font-semibold">Machine Usage:</span> 
+                    {selectedRequest.ricohPages ? ` Ricoh (${selectedRequest.ricohPages} pages)` : ''}
+                    {selectedRequest.ricohPages && selectedRequest.toshibaPages ? ' | ' : ''}
+                    {selectedRequest.toshibaPages ? ` Toshiba (${selectedRequest.toshibaPages} pages)` : ''}
+                </div>
+            ) : null}
           </div>
           
           <div className="mt-6 border-t pt-4">
@@ -123,13 +203,13 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
                   <h4 className="font-semibold text-center">2. Adjustments & Remarks</h4>
                   <div className="grid sm:grid-cols-2 gap-4">
                        <div>
-                            <label htmlFor="adjustedCopies" className="block text-sm font-medium text-slate-700">Adjusted Quantity</label>
+                            <label htmlFor="adjustedCopies" className="block text-sm font-medium text-slate-700">Adjusted Total Copies</label>
                             <input
                                 id="adjustedCopies"
                                 type="number"
                                 placeholder="If different from request..."
                                 value={selectedRequest.adjustedCopies || ''}
-                                onChange={(e) => handleUpdate('adjustedCopies', Number(e.target.value))}
+                                onChange={(e) => handleUpdate('adjustedCopies', e.target.value === '' ? undefined : Number(e.target.value))}
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
@@ -141,6 +221,28 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
                                 placeholder="e.g., paper jam, toner low"
                                 value={selectedRequest.staffRemarks || ''}
                                 onChange={(e) => handleUpdate('staffRemarks', e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="ricohPages" className="block text-sm font-medium text-slate-700">Pages on Ricoh</label>
+                            <input
+                                id="ricohPages"
+                                type="number"
+                                placeholder="e.g., 150"
+                                value={selectedRequest.ricohPages || ''}
+                                onChange={(e) => handleUpdate('ricohPages', e.target.value === '' ? undefined : Number(e.target.value))}
+                                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="toshibaPages" className="block text-sm font-medium text-slate-700">Pages on Toshiba</label>
+                            <input
+                                id="toshibaPages"
+                                type="number"
+                                placeholder="e.g., 170"
+                                value={selectedRequest.toshibaPages || ''}
+                                onChange={(e) => handleUpdate('toshibaPages', e.target.value === '' ? undefined : Number(e.target.value))}
                                 className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
@@ -165,6 +267,16 @@ const StaffView: React.FC<StaffViewProps> = ({ requests, updateRequest }) => {
         <CameraCapture
           onCapture={handleCapture}
           onClose={() => setIsCapturing(null)}
+        />
+      )}
+
+      {isScanning && (
+        <BarcodeScanner
+          onScan={(scannedId) => {
+            setSearchId(scannedId);
+            setIsScanning(false);
+          }}
+          onClose={() => setIsScanning(false)}
         />
       )}
     </div>

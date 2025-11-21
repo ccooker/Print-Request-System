@@ -28,6 +28,8 @@ export interface PrintRequest {
   meterPhotoAfter?: string; // base64 data URL
   adjustedCopies?: number;
   staffRemarks?: string;
+  ricohPages?: number;
+  toshibaPages?: number;
 }
 
 export enum AppView {

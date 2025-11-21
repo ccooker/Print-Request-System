@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { PrintRequest } from '../types';
 
 interface PrintableViewProps {
@@ -7,15 +6,31 @@ interface PrintableViewProps {
   onBack: () => void;
 }
 
-// Simple component to simulate a barcode
+// Make sure JsBarcode is available globally via script tag in index.html
+declare var JsBarcode: any;
+
 const Barcode: React.FC<{ text: string }> = ({ text }) => {
-    const bars = text.split('').map((char, i) => {
-        const width = (char.charCodeAt(0) % 4) + 1; // pseudo-random width 1-4
-        return <div key={i} className="bg-black" style={{ width: `${width}px`, height: '50px' }}></div>;
-    });
+    const ref = useRef<SVGSVGElement>(null);
+
+    useEffect(() => {
+        if (ref.current && typeof JsBarcode === 'function') {
+            try {
+                JsBarcode(ref.current, text, {
+                    format: 'CODE128',
+                    displayValue: false, // The ID is already printed below
+                    margin: 0,
+                    height: 50,
+                    width: 2,
+                });
+            } catch (e) {
+                console.error("Barcode generation failed", e);
+            }
+        }
+    }, [text]);
+
     return (
-        <div className="flex items-end space-x-px" aria-label={`Barcode for ${text}`}>
-            {bars}
+        <div aria-label={`Barcode for ${text}`}>
+            <svg ref={ref} />
         </div>
     );
 };

@@ -1,0 +1,7 @@
+{
+  "name": "School Printing Request System",
+  "description": "A web application for teachers to submit printing requests and for printing room staff to manage and track these requests, including capturing printer meter readings.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
